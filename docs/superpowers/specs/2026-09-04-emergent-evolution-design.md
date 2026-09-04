@@ -259,9 +259,14 @@ biologically honest than instantaneous propagation.
 
 ```
 INCOME
-  eat:     take up to EAT_RATE from own cell
-           energy += plant_taken * (1-diet) * PLANT_ENERGY
-                   + meat_taken  *    diet  * MEAT_ENERGY
+  eat:     intake is BUDGETED by diet, not discounted after the fact:
+             plant_taken = take_plant(cell, EAT_RATE * (1 - diet))
+             meat_taken  = take_meat(cell,  EAT_RATE *      diet)
+             energy += plant_taken * PLANT_ENERGY + meat_taken * MEAT_ENERGY
+           Both forms encode the same tradeoff, but budgeting stops a pure
+           carnivore from stripping a cell of plants it cannot digest and
+           gaining nothing -- an invisible trampling effect that would distort
+           the plant CA wherever carnivores walk.
 
 OUTFLOW per tick
   basal        BASAL
