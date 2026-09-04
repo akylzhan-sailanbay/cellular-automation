@@ -4,6 +4,16 @@ import numpy as np
 
 from evolution.genome import Genome
 
+# Recurrent connections are permitted and `identity`/`relu` are unbounded, so a
+# cycle with loop gain > 1 amplifies its own state every tick and diverges
+# exponentially. Measured: |state| reached 1.1e308 by tick 16055 with a max
+# weight of only 3.5. Because outputs are tanh the divergence is INVISIBLE from
+# the outside until state overflows to inf, sums become nan, and argmax starts
+# returning arbitrary actions. STATE_LIMIT bounds the recurrent state far above
+# any meaningful signal (inputs are normalised, weights are ~N(0,1)) while making
+# divergence impossible.
+STATE_LIMIT = 1e6
+
 ACT_FN: dict[str, Callable[[np.ndarray], np.ndarray]] = {
     "identity": lambda x: x,
     "tanh": np.tanh,
@@ -60,6 +70,7 @@ class Brain:
         new = np.empty(self.n, dtype=np.float64)
         for name, idxs in self.act_groups.items():
             new[idxs] = ACT_FN[name](sums[idxs])
+        np.clip(new, -STATE_LIMIT, STATE_LIMIT, out=new)
         new[self.input_idx] = inputs
 
         self.state = new

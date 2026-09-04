@@ -72,3 +72,30 @@ def test_disabled_connections_do_not_contribute():
     dead = settle(Brain(g), x)
     assert np.allclose(dead, 0.0)
     assert not np.allclose(live, dead)
+
+
+def test_recurrent_state_cannot_diverge():
+    """Regression. identity/relu are unbounded and recurrence is allowed, so a
+    self-loop with gain > 1 diverges exponentially. Measured in a real run:
+    |state| hit 1.1e308 by tick 16055 with max weight 3.5. Outputs are tanh, so
+    the divergence is invisible until state overflows to inf and argmax starts
+    returning arbitrary actions."""
+    from evolution.brain import STATE_LIMIT
+    from evolution.genome import ConnGene, NodeGene
+
+    cfg = Config()
+    g = random_genome(cfg.rng(), cfg)
+    loop_id = g.next_node_id
+    g.next_node_id += 1
+    g.nodes.append(NodeGene(loop_id, "hidden", "identity"))
+    g.conns.append(ConnGene(0, loop_id, 1.0))
+    g.conns.append(ConnGene(loop_id, loop_id, 10.0))  # runaway self-loop
+
+    b = Brain(g)
+    x = np.ones(N_INPUTS)
+    with np.errstate(over="raise", invalid="raise"):
+        for _ in range(5000):
+            out = b.step(x)
+    assert np.all(np.isfinite(b.state)), "brain state diverged to inf/nan"
+    assert np.abs(b.state).max() <= STATE_LIMIT + 1e-9
+    assert np.all(np.isfinite(out))
