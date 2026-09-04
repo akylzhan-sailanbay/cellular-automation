@@ -78,17 +78,42 @@ def test_population_occupies_better_habitat_than_chance():
 
 @pytest.mark.xfail(
     reason=(
-        "NOT SUPPORTED as of 2026-09-04. Over ~230 generations new variation "
-        "does not beat sorting among founders: 0.674 (mutation on) vs 0.727 "
-        "(control), Cohen's d = -0.71. Kept as a failing test on purpose -- it "
-        "is the open scientific question, not dead code."
+        "NOT SUPPORTED **on habitat occupancy specifically**: 0.674 (mutation "
+        "on) vs 0.727 (control), Cohen's d = -0.71 over ~230 generations. Note "
+        "this is a bad metric -- consumption equalises the two halves (ideal "
+        "free distribution) so sorting alone reaches a good distribution. On "
+        "BODY GENES new variation clearly DOES beat sorting: speed 1.96 with "
+        "mutation vs 1.07 without, size 0.55 vs 1.16. See "
+        "docs/results/2026-09-04-run-notes.md."
     ),
     strict=False,
     run=False,
 )
-def test_new_variation_outperforms_founder_sorting():
+def test_new_variation_outperforms_founder_sorting_on_habitat_choice():
     raise AssertionError(
         "Requires 4 x 150,000-tick runs (~25 min). Reproduce with:\n"
         "  python3 /tmp/finalgate.py 150000 2000 450 21,22\n"
-        "Last measured: mutation ON mean 0.674, OFF mean 0.727 -> not supported."
+        "Last measured: mutation ON mean 0.674, OFF mean 0.727 -> not supported "
+        "for THIS metric. Body-gene optimisation tells the opposite story."
+    )
+
+
+def test_new_variation_beats_founder_sorting_on_body_genes():
+    """The claim the habitat metric could not settle. With mutation off,
+    selection can only sort the founding pool; with it on, lineages reach
+    optima no founder carried. Measured over 40,000 ticks, seed 1:
+    speed 1.96 (mutation) vs 1.07 (sorting only); size 0.55 vs 1.16."""
+    import numpy as np
+
+    results = {}
+    for on in (True, False):
+        cfg = Config(width=64, height=64, seed=1, allow_attack=True,
+                     mutation_enabled=on)
+        sim = Simulation(cfg)
+        sim.run(20_000)
+        assert sim.agents, f"extinct with mutation_enabled={on}"
+        results[on] = float(np.mean([a.speed for a in sim.agents]))
+    assert results[True] > results[False] + 0.3, (
+        f"new variation ({results[True]:.2f}) did not beat founder sorting "
+        f"({results[False]:.2f}) on the speed gene"
     )
