@@ -7,7 +7,7 @@ def test_defaults_match_spec():
     c = Config()
     assert (c.width, c.height) == (128, 128)
     assert c.plant_cap == 20.0
-    assert c.brain_cost == 0.02
+    assert c.brain_cost == 0.005
     assert c.max_age == 2000
 
 

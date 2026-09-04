@@ -115,7 +115,7 @@ def test_defaults_match_spec():
     c = Config()
     assert (c.width, c.height) == (128, 128)
     assert c.plant_cap == 20.0
-    assert c.brain_cost == 0.02
+    assert c.brain_cost == 0.005
     assert c.max_age == 2000
 
 
@@ -189,7 +189,7 @@ class Config:
     basal: float = 0.5
     move_cost: float = 0.2
     upkeep: float = 0.1
-    brain_cost: float = 0.02
+    brain_cost: float = 0.005  # 0.02 purges neutral structure
     attack_cost: float = 2.0
 
     # life cycle

@@ -365,10 +365,10 @@ MEAT_DECAY        0.05
 BASAL             0.5
 MOVE_COST         0.2       x size
 UPKEEP            0.1       x size^2
-BRAIN_COST        0.02      x enabled connections
+BRAIN_COST        0.005     x enabled connections (0.02 purged structure)
 ATTACK_COST       2.0
 
-REPRO_THRESHOLD   120.0     x size
+REPRO_THRESHOLD   450.0     x size (120 boom-busted to extinction)
 MAX_AGE           2000
 
 STATS_INTERVAL    50 ticks

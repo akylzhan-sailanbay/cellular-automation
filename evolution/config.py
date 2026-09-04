@@ -37,7 +37,11 @@ class Config:
     basal: float = 0.5
     move_cost: float = 0.2
     upkeep: float = 0.1
-    brain_cost: float = 0.02
+    # 0.02 purged neutral structure ~7x faster than mutation supplied it
+    # (0.06 hidden nodes where the rates alone predict 0.44). At 0.005 the
+    # same run reaches 1.04. Complexity must be cheap enough to drift in
+    # before it can ever pay off, since a split node arrives neutral.
+    brain_cost: float = 0.005
     attack_cost: float = 2.0
 
     # life cycle
