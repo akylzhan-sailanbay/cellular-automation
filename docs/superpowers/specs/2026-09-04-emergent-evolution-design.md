@@ -262,7 +262,20 @@ new[i] = activation_i( sum over enabled (j -> i) of weight * prev[j] )
 ```
 
 Uniform, cycle-safe, and gives recurrence and memory for free. The cost is that a
-signal takes N ticks to traverse N layers. This is accepted, and is arguably more
+signal takes N ticks to traverse N layers.
+
+**Node state must be clamped.** `identity` and `relu` are unbounded and recurrent
+connections are permitted, so any cycle whose loop gain exceeds 1 amplifies its
+own state every tick and diverges exponentially. Measured in a real run: node
+state reached 1.096e308 by tick 16,055 with a maximum weight of only 3.5. The
+failure is invisible from outside, because output nodes are `tanh` and keep
+returning values in [-1, 1] the whole time; only once state overflows to `inf` do
+sums become `nan` and `argmax` start selecting arbitrary actions, at which point
+the agent behaves randomly while the simulation reports no error at all. Any
+result from a run longer than about 16,000 ticks would have been suspect.
+Implementation clamps state to `STATE_LIMIT = 1e6`, far above any meaningful
+signal given normalised inputs and `N(0,1)` weights; after the fix a 30,000-tick
+run peaks at 2.347. This is accepted, and is arguably more
 biologically honest than instantaneous propagation.
 
 ## 7. Economy
