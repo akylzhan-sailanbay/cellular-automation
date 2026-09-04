@@ -109,3 +109,66 @@ def validate(g: Genome) -> None:
     lo, hi = MUTATION_RATE_RANGE
     assert lo <= g.mutation_rate <= hi, "mutation_rate out of range"
     assert g.next_node_id > max(ids), "next_node_id would collide"
+
+
+def _add_link(g: Genome, rng: np.random.Generator) -> None:
+    return
+
+
+def _add_node(g: Genome, rng: np.random.Generator) -> None:
+    return
+
+
+def _del_link(g: Genome, rng: np.random.Generator) -> None:
+    return
+
+
+def _del_node(g: Genome, rng: np.random.Generator) -> None:
+    return
+
+
+def _toggle_enable(g: Genome, rng: np.random.Generator) -> None:
+    return
+
+
+def _change_activation(g: Genome, rng: np.random.Generator) -> None:
+    return
+
+
+def mutate(g: Genome, rng: np.random.Generator, cfg: Config) -> Genome:
+    child = g.copy()
+    if not cfg.mutation_enabled:
+        return child
+
+    m = child.mutation_rate
+
+    for c in child.conns:
+        if rng.random() < 0.8 * m:
+            c.weight += float(rng.normal(0.0, 0.5))
+
+    if rng.random() < 0.5 * m:
+        _add_link(child, rng)
+    if rng.random() < 0.2 * m:
+        _add_node(child, rng)
+    if rng.random() < 0.3 * m:
+        _del_link(child, rng)
+    if rng.random() < 0.1 * m:
+        _del_node(child, rng)
+    if rng.random() < 0.1 * m:
+        _toggle_enable(child, rng)
+    if rng.random() < 0.1 * m:
+        _change_activation(child, rng)
+
+    for name, (lo, hi) in BODY_GENE_RANGES.items():
+        if rng.random() < m:
+            jitter = float(rng.normal(0.0, 0.1 * (hi - lo)))
+            child.body[name] = float(np.clip(child.body[name] + jitter, lo, hi))
+
+    # Deliberately NOT scaled by m: a self-scaling meta-mutation rate is a
+    # runaway feedback loop in both directions (spec 5.3).
+    if rng.random() < 0.1:
+        lo, hi = MUTATION_RATE_RANGE
+        scaled = child.mutation_rate * float(np.exp(rng.normal(0.0, 0.1)))
+        child.mutation_rate = float(np.clip(scaled, lo, hi))
+
+    return child
