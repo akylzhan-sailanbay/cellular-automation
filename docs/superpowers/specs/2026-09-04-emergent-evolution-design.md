@@ -420,6 +420,43 @@ Correctness tests:
 Validation tests, which check that evolution actually works rather than that the
 code merely runs:
 
+**Finding (2026-09-04): a non-wrapping world is not a harder version of the
+torus, it is a different and much harder problem.** The gate below was
+originally specified with `wrap=False` so that "go east" would be unambiguous.
+Measured: the founding population goes extinct by tick 489 even with the plant
+layer at 99.7% of capacity. Instrumentation showed 100% of survivors pinned to
+the boundary by tick 300. The cause is that an initial genome has no hidden
+nodes, so its movement output is close to a constant direction bias; on a torus
+that is a viable forager which circles indefinitely and keeps meeting fresh
+cells, but against a wall it presses into the boundary, never moves, strips the
+one cell beneath it and starves. A non-wrapping world therefore kills the
+founders before selection can act on them. The gate keeps `wrap=True` and
+measures habitat quality instead of raw x-position, which also avoids the
+separate problem that a mean of x is meaningless on a circle.
+
+**Finding (2026-09-04): generation count, not tick count, is the budget that
+matters.** The first gate run measured 14-61 generations in 20,000 ticks -- about
+300 ticks per generation. At `mutation_rate` 0.1 the add-node probability is
+`0.2 * m = 0.02` per birth, so 50 generations buys one structural mutation per
+lineage against half a deletion. Measured mean hidden-node count after 44
+generations was 0.06, roughly 7x BELOW the 0.44 the mutation rates alone predict,
+which means selection was actively purging neutral structure rather than merely
+failing to favour it. The cause is brain rent: at `BRAIN_COST` 0.02 and
+`MAX_AGE` 2000, one extra connection costs 40 energy over a lifetime, or 9% of a
+whole reproduction budget, and by design a freshly split node contributes nothing
+yet. Complexity must be cheap enough to drift in before it can ever pay off.
+Shorter lifespans attack both halves at once: they raise turnover AND cut the
+lifetime rent proportionally.
+
+**Finding (2026-09-04): consumption flattens the very gradient the gate
+measures.** In the rich/poor world the productivity ratio is 6.7:1, but measured
+standing plant density was only 2.19:1 and the perceived sensor ratio only
+1.49:1, because agents deplete the rich half faster. This is the ideal free
+distribution appearing on its own, and it is a genuine emergent result -- but it
+also means the selective advantage of occupying the rich half is far weaker than
+the productivity ratio suggests. A gate built on habitat choice must use a
+contrast strong enough to survive this flattening.
+
 7. **Null run.** Mutation rate forced to zero. Population statistics must stay
    flat apart from drift and extinction. This proves that any change seen in a
    normal run comes from mutation and not from a bug in the harness. Without this
