@@ -41,7 +41,10 @@ class Config:
     attack_cost: float = 2.0
 
     # life cycle
-    repro_threshold: float = 120.0
+    # 120 boom-busted to extinction by tick 2251; 450 survives 3/3 seeds.
+    # Higher is NOT better -- 900 loses a seed because bottlenecked
+    # populations then reproduce too slowly to recover.
+    repro_threshold: float = 450.0
     max_age: int = 2000
 
     # staging switches
