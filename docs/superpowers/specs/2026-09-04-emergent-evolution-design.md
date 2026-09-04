@@ -104,9 +104,19 @@ drifting patches:
 ```
 for each cell c:
     n = count of 8-neighbors of c with plant > PLANT_SEED_MIN
-    plant[c] += PLANT_GROWTH * (1 + PLANT_SPREAD * n)
+    plant[c] += PLANT_GROWTH * (PLANT_SPONTANEOUS + PLANT_SPREAD * n)
     plant[c]  = min(plant[c], PLANT_CAP)
 ```
+
+**Growth must be driven by neighbours, not by a flat rate.** An earlier
+version of this formula read `PLANT_GROWTH * (1 + PLANT_SPREAD * n)`, which
+gives every cell the full growth rate whether or not any plant is nearby; the
+neighbour term was only a bonus. Under that rule an isolated empty cell fills to
+the cap in 133 ticks, the equilibrium of the whole grid is a uniform lawn at
+`PLANT_CAP`, and the layer is not a cellular automaton at all. The bug was
+caught by `test_plants_spread_producing_patchiness`. With `PLANT_SPONTANEOUS`
+small, an isolated cell instead needs ~13,000 ticks, so empty regions stay empty
+and plants genuinely spread as a front.
 
 **Rationale, because this looks like a cosmetic choice and is not:** with food
 spread uniformly, random wandering is close to optimal, no navigation strategy
@@ -342,7 +352,8 @@ INITIAL_ENERGY    150
 
 PLANT_CAP         20.0
 PLANT_GROWTH      0.15
-PLANT_SPREAD      0.05      per plant-bearing 8-neighbor
+PLANT_SPREAD      0.125     per plant-bearing 8-neighbor
+PLANT_SPONTANEOUS 0.01      growth with no neighbours; deliberately near-zero
 PLANT_SEED_MIN    1.0
 
 EAT_RATE          5.0

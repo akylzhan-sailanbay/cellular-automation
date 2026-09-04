@@ -19,7 +19,11 @@ class Config:
     # plant cellular automaton
     plant_cap: float = 20.0
     plant_growth: float = 0.15
-    plant_spread: float = 0.05
+    # Growth is driven by seeded NEIGHBOURS, not by a flat rate everywhere --
+    # a flat rate saturates the whole grid and destroys the patchiness the
+    # plant layer exists to create (spec 4).
+    plant_spread: float = 0.125
+    plant_spontaneous: float = 0.01
     plant_seed_min: float = 1.0
 
     # feeding
