@@ -112,27 +112,60 @@ def validate(g: Genome) -> None:
 
 
 def _add_link(g: Genome, rng: np.random.Generator) -> None:
-    return
+    existing = {(c.src, c.dst) for c in g.conns}
+    sources = [n.id for n in g.nodes]
+    targets = [n.id for n in g.nodes if n.kind != "input"]
+    for _ in range(20):
+        src = sources[int(rng.integers(len(sources)))]
+        dst = targets[int(rng.integers(len(targets)))]
+        if (src, dst) not in existing:
+            g.conns.append(ConnGene(src, dst, float(rng.normal(0.0, 1.0))))
+            return
 
 
 def _add_node(g: Genome, rng: np.random.Generator) -> None:
-    return
+    candidates = [c for c in g.conns if c.enabled]
+    if not candidates:
+        return
+    old = candidates[int(rng.integers(len(candidates)))]
+    new_id = g.next_node_id
+    g.next_node_id += 1
+    # identity activation and unit input weight make the split exactly
+    # function-preserving at steady state (spec 5.3)
+    g.nodes.append(NodeGene(new_id, "hidden", "identity"))
+    old.enabled = False
+    g.conns.append(ConnGene(old.src, new_id, 1.0))
+    g.conns.append(ConnGene(new_id, old.dst, old.weight))
 
 
 def _del_link(g: Genome, rng: np.random.Generator) -> None:
-    return
+    if not g.conns:
+        return
+    del g.conns[int(rng.integers(len(g.conns)))]
 
 
 def _del_node(g: Genome, rng: np.random.Generator) -> None:
-    return
+    hidden = [n for n in g.nodes if n.kind == "hidden"]
+    if not hidden:
+        return
+    victim = hidden[int(rng.integers(len(hidden)))]
+    g.nodes.remove(victim)
+    g.conns = [c for c in g.conns if c.src != victim.id and c.dst != victim.id]
 
 
 def _toggle_enable(g: Genome, rng: np.random.Generator) -> None:
-    return
+    if not g.conns:
+        return
+    c = g.conns[int(rng.integers(len(g.conns)))]
+    c.enabled = not c.enabled
 
 
 def _change_activation(g: Genome, rng: np.random.Generator) -> None:
-    return
+    hidden = [n for n in g.nodes if n.kind == "hidden"]
+    if not hidden:
+        return
+    node = hidden[int(rng.integers(len(hidden)))]
+    node.activation = ACTIVATIONS[int(rng.integers(len(ACTIVATIONS)))]
 
 
 def mutate(g: Genome, rng: np.random.Generator, cfg: Config) -> Genome:
