@@ -1730,7 +1730,11 @@ def test_metabolic_cost_includes_brain_rent():
     a = make_agent(cfg)
     base = metabolic_cost(a, cfg, moved=False)
     a.brain_links += 100
-    assert metabolic_cost(a, cfg, moved=False) == base + 100 * cfg.brain_cost
+    # tolerance, not equality: adding 100 links inside the sum associates
+    # differently from adding 100 * brain_cost to the result
+    assert abs(
+        metabolic_cost(a, cfg, moved=False) - (base + 100 * cfg.brain_cost)
+    ) < 1e-9
 
 
 def test_moving_costs_more_than_standing_still():
