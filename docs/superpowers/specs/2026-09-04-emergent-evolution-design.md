@@ -128,7 +128,7 @@ system. There is no population cap.
 | `size` | 0.5 - 3.0 | attack success, move cost, corpse value, upkeep |
 | `sense_range` | 1 - 6 | how far sensors reach (float, used as a distance scale) |
 | `speed` | 0.5 - 2.0 | actions per tick, via an accumulator (see below) |
-| `mutation_rate` | 0.01 - 0.5 | scales all mutation probabilities, including its own |
+| `mutation_rate` | 0.01 - 0.5 | scales every mutation probability except its own (see 5.3) |
 
 `mutation_rate` being itself heritable means evolvability can evolve. Expect it
 to fall in stable environments and rise after a shock; this is a metric worth
@@ -192,6 +192,15 @@ This is not an optimization; it is load-bearing. If structural mutations changed
 behavior on arrival, nearly every one would be immediately fatal, structure would
 never be retained, and brain complexity would stay flat forever. Neutral arrival
 lets structure accumulate first and become useful later.
+
+**Function-preserving means at steady state, not tick-for-tick.** Because brain
+evaluation is synchronous (6.1), inserting a node onto a path adds exactly one
+tick of propagation delay, so the pre-split and post-split brains do *not* agree
+on the transient. They agree once the signal has settled. Test 2 must therefore
+hold a constant input for enough ticks to settle (50 is ample for an acyclic
+genome) and compare the settled outputs. Comparing tick 1 against tick 1 would
+fail for a correct implementation, and chasing that phantom failure would waste
+a lot of time.
 
 Input and output nodes are never deleted and never change activation.
 
