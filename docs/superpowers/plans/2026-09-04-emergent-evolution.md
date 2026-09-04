@@ -1431,10 +1431,10 @@ def sense_reference(
                     best_size[d] = world.occ_size[cy, cx]
                     best_diet[d] = world.occ_diet[cy, cx]
 
-    with np.errstate(invalid="ignore", divide="ignore"):
-        v[0:4] = np.where(
-            cell_count > 0, plant_sum / (cell_count * cfg.plant_cap), 0.0
-        )
+    # plant_cap can legitimately be 0 in starvation configs; without the
+    # floor this is 0/0 and NaN sensors flow silently into every brain
+    denom = cell_count * max(cfg.plant_cap, 1e-9)
+    v[0:4] = np.where(cell_count > 0, plant_sum / denom, 0.0)
     seen = np.isfinite(best_dist)
     # proximity, not distance: 1.0 is adjacent, 0.0 is nothing in range
     v[4:8] = np.where(seen, 1.0 - best_dist / (r + 1.0), 0.0)
@@ -1605,7 +1605,9 @@ def sense_batch(
 
         counts = dir_mask.sum(axis=(1, 2)).astype(np.float64)
         plant_sum = np.tensordot(plant, dir_mask, axes=([1, 2], [1, 2]))
-        out[np.ix_(sel, np.arange(0, 4))] = plant_sum / (counts * cfg.plant_cap)
+        out[np.ix_(sel, np.arange(4))] = plant_sum / (
+            counts * max(cfg.plant_cap, 1e-9)
+        )
 
         flat_dist = dist.reshape(-1)
         for d in range(4):
