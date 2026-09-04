@@ -353,7 +353,7 @@ INITIAL_ENERGY    150
 PLANT_CAP         20.0
 PLANT_GROWTH      0.15
 PLANT_SPREAD      0.125     per plant-bearing 8-neighbor
-PLANT_SPONTANEOUS 0.01      growth with no neighbours; deliberately near-zero
+PLANT_SPONTANEOUS 0.05      growth with no neighbours (0.01 caused extinction)
 PLANT_SEED_MIN    1.0
 
 EAT_RATE          5.0

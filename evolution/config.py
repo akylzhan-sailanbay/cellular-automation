@@ -23,7 +23,11 @@ class Config:
     # a flat rate saturates the whole grid and destroys the patchiness the
     # plant layer exists to create (spec 4).
     plant_spread: float = 0.125
-    plant_spontaneous: float = 0.01
+    # 0.01 was over-tuned for patchiness: stripped regions recovered 100x
+    # slower than seeded ones and BOTH seeds went extinct by 15k ticks.
+    # 0.05 survives 60k on both seeds and is actually MORE patchy
+    # (plant CV 1.95-2.36 vs 1.31-1.34 at 0.15).
+    plant_spontaneous: float = 0.05
     plant_seed_min: float = 1.0
 
     # feeding
