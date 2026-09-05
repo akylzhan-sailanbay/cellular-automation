@@ -3,7 +3,10 @@ from pathlib import Path
 
 CORE = Path(__file__).resolve().parent.parent / "evolution"
 BANNED_CALLS = {"sorted", "max", "min"}
-ALLOWED = {"stats.py", "report.py"}
+# Exporters and analysis modules may read agent state for measurement and
+# display. They are not part of the simulation core and cannot influence
+# who reproduces.
+ALLOWED = {"stats.py", "report.py", "showcase.py"}
 
 
 def core_modules():
