@@ -173,3 +173,63 @@ def ablation(seed: int, attack: bool, evolve: int = 20_000,
         "mean_scrambled": round(float(np.mean(scrambled)), 4),
         "drop_pct": round(100 * (float(np.mean(scrambled)) - intact) / max(intact, 1e-9), 1),
     }
+
+
+def cohort_fitness(sim: Simulation, ticks: int) -> dict:
+    """Track the exact agents alive at lesion time, with a FIXED denominator.
+
+    Feeding rate divided by agent-ticks is survivorship-biased: if a lesion
+    kills the weakest feeders quickly, the survivors are whoever happened to
+    cope, and the average rises even though nothing improved. Tagging a cohort
+    and asking how many of THOSE specific individuals are alive later, and how
+    many offspring they left, cannot be inflated that way -- the denominator is
+    fixed the moment the lesion is applied.
+    """
+    cohort = {a.id for a in sim.agents}
+    n0 = len(cohort)
+    births0 = sim.births
+    for _ in range(ticks):
+        sim.tick()
+        if not sim.agents:
+            break
+    alive = sum(1 for a in sim.agents if a.id in cohort)
+    return {
+        "cohort": n0,
+        "survived": alive,
+        "survival": round(alive / max(n0, 1), 4),
+        "offspring": sim.births - births0,
+        "offspring_per_founder": round((sim.births - births0) / max(n0, 1), 3),
+        "population_end": len(sim.agents),
+    }
+
+
+def ablation2(seed: int, attack: bool, evolve: int = 20_000,
+              window: int = 1500, replicates: int = 5) -> dict:
+    """Ablation judged by cohort survival and offspring, not feeding rate.
+
+    Feeding rate turned out to be the wrong readout: scrambled brains fed MORE,
+    plausibly because an evolved brain in a world with predators trades grazing
+    for not being eaten. Feeding is one component of fitness, not fitness.
+    """
+    cfg = Config(width=64, height=64, seed=seed, allow_attack=attack)
+    sim = Simulation(cfg)
+    sim.run(evolve)
+    if not sim.agents:
+        return {"extinct": True, "seed": seed, "attack": attack}
+
+    hidden = float(np.mean([a.genome.hidden_count() for a in sim.agents]))
+    intact = cohort_fitness(fork(sim, False), window)
+    runs = []
+    for k in range(replicates):
+        twin = fork(sim, False)
+        scramble(twin, np.random.default_rng(20_000 + k))
+        runs.append(cohort_fitness(twin, window))
+    return {
+        "extinct": False, "seed": seed, "attack": attack,
+        "hidden": round(hidden, 3),
+        "intact": intact,
+        "scrambled_survival": round(float(np.mean([r["survival"] for r in runs])), 4),
+        "scrambled_offspring": round(
+            float(np.mean([r["offspring_per_founder"] for r in runs])), 3),
+        "replicates": runs,
+    }

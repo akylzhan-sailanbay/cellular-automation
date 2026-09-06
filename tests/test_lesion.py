@@ -89,30 +89,50 @@ def test_scramble_preserves_wiring_and_cost_exactly():
     ) == before_weights, "scramble must permute weights, not change them"
 
 
+def _give_hidden_structure(sim, rng):
+    """Build the structure directly rather than hoping a short run evolves it.
+    These tests previously skipped, and a skipped test verifies nothing."""
+    from evolution.brain import Brain
+    for a in sim.agents:
+        for _ in range(4):
+            _add_node(a.genome, rng)
+        a.brain = Brain(a.genome)
+        a.brain_links = a.genome.enabled_count()
+    return sim
+
+
 def test_scramble_actually_changes_behaviour():
     from evolution.lesion import scramble
-    sim = evolved(ticks=6000)
-    twin = fork(sim, False)
-    with_hidden = [a for a in twin.agents if a.genome.hidden_count() > 0]
-    if len(with_hidden) < 5:
-        import pytest
-        pytest.skip("population evolved too little structure to scramble")
-    before = [[c.weight for c in a.genome.conns] for a in with_hidden]
+    rng = np.random.default_rng(0)
+    twin = _give_hidden_structure(fork(evolved(ticks=1200), False), rng)
+    assert all(a.genome.hidden_count() == 4 for a in twin.agents)
+    before = [[c.weight for c in a.genome.conns] for a in twin.agents]
     scramble(twin, np.random.default_rng(0))
-    after = [[c.weight for c in a.genome.conns] for a in with_hidden]
+    after = [[c.weight for c in a.genome.conns] for a in twin.agents]
     assert before != after, "scramble had no effect on any genome"
 
 
 def test_scramble_is_inherited_through_the_genome():
-    """Scrambling the compiled brain alone would revert at the first birth,
+    """Scrambling only the compiled brain would revert at the first birth,
     because children are built from the parent's genome."""
     from evolution.lesion import scramble
-    sim = evolved(ticks=6000)
-    twin = fork(sim, False)
-    tagged = next((a for a in twin.agents if a.genome.hidden_count() > 1), None)
-    if tagged is None:
-        import pytest
-        pytest.skip("no agent with enough hidden structure")
+    rng = np.random.default_rng(0)
+    twin = _give_hidden_structure(fork(evolved(ticks=1200), False), rng)
+    tagged = twin.agents[0]
     before = [c.weight for c in tagged.genome.conns]
     scramble(twin, np.random.default_rng(1))
     assert [c.weight for c in tagged.genome.conns] != before
+
+
+def test_scramble_keeps_every_pathway_connected():
+    """The failure mode that broke the first experiment: a lesion that
+    disconnects sensors from motors starves the population instead of
+    testing it. Scrambling must leave the graph identical."""
+    from evolution.lesion import scramble
+    rng = np.random.default_rng(0)
+    twin = _give_hidden_structure(fork(evolved(ticks=1200), False), rng)
+    edges = sorted((c.src, c.dst) for a in twin.agents
+                   for c in a.genome.conns if c.enabled)
+    scramble(twin, np.random.default_rng(2))
+    assert sorted((c.src, c.dst) for a in twin.agents
+                  for c in a.genome.conns if c.enabled) == edges
