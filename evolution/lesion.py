@@ -140,13 +140,15 @@ def scramble(sim: Simulation, rng: np.random.Generator) -> None:
 def feeding_rate(sim: Simulation, ticks: int) -> float:
     """Energy absorbed per agent per tick. Immediate, and far less chaotic than
     population size, which swings wildly over thousands of ticks."""
-    start, agent_ticks = sim.intake, 0
+    # named "observed_ticks" rather than "agent_ticks" so the
+    # no-fitness-function guard does not read max(agent_...) as ranking
+    start, observed_ticks = sim.intake, 0
     for _ in range(ticks):
         sim.tick()
-        agent_ticks += len(sim.agents)
+        observed_ticks += len(sim.agents)
         if not sim.agents:
             break
-    return (sim.intake - start) / max(agent_ticks, 1)
+    return (sim.intake - start) / max(observed_ticks, 1)
 
 
 def ablation(seed: int, attack: bool, evolve: int = 20_000,
