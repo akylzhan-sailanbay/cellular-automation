@@ -99,3 +99,44 @@ def test_recurrent_state_cannot_diverge():
     assert np.all(np.isfinite(b.state)), "brain state diverged to inf/nan"
     assert np.abs(b.state).max() <= STATE_LIMIT + 1e-9
     assert np.all(np.isfinite(out))
+
+
+def test_lesion_silences_hidden_nodes_but_not_outputs():
+    from evolution.genome import ConnGene, NodeGene
+
+    cfg = Config()
+    g = random_genome(cfg.rng(), cfg)
+    _add_node(g, cfg.rng())
+    b = Brain(g)
+    x = np.ones(N_INPUTS)
+    settle(b, x)
+    assert np.any(b.state[b.hidden_idx] != 0.0), "test needs a live hidden node"
+    b.reset(); b.lesioned = True
+    out = settle(b, x)
+    assert np.all(b.state[b.hidden_idx] == 0.0), "hidden nodes must be silenced"
+    assert out.shape == (N_OUTPUTS,)
+
+
+def test_lesion_does_not_change_the_genome_or_its_cost():
+    """The whole experiment rests on this. Deleting hidden nodes would refund
+    13-20% of a reproduction budget, so lesioned agents might survive better
+    for energetic reasons alone. Silencing keeps the rent identical."""
+    cfg = Config()
+    g = random_genome(cfg.rng(), cfg)
+    for _ in range(6):
+        _add_node(g, cfg.rng())
+    before = g.enabled_count()
+    b = Brain(g)
+    b.lesioned = True
+    settle(b, np.ones(N_INPUTS))
+    assert g.enabled_count() == before, "lesion must not alter the genome"
+    assert len([c for c in g.conns if c.enabled]) == before
+
+
+def test_lesion_is_a_no_op_without_hidden_nodes():
+    cfg = Config()
+    g = random_genome(cfg.rng(), cfg)
+    x = np.linspace(-1, 1, N_INPUTS)
+    plain = settle(Brain(g), x)
+    b = Brain(g); b.lesioned = True
+    assert np.allclose(settle(b, x), plain)

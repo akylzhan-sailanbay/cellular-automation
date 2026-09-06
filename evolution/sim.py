@@ -38,6 +38,10 @@ class Simulation:
         self.ledger = {
             "grown": 0.0, "metabolism": 0.0, "decayed": 0.0, "conversion": 0.0
         }
+        # Experimental ablation switch. When True, every brain born into this
+        # simulation has its hidden nodes silenced. Children must inherit it or
+        # the lesion would wash out within a generation as fresh brains appear.
+        self.lesion = False
         self._seed_population()
 
     def _seed_population(self) -> None:
@@ -58,6 +62,7 @@ class Simulation:
         self, genome: Genome, x: int, y: int, energy: float, depth: int
     ) -> Agent:
         a = Agent.create(self.next_id, genome, x, y, energy, depth)
+        a.brain.lesioned = self.lesion
         self.next_id += 1
         self.agents.append(a)
         self.by_id[a.id] = a

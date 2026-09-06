@@ -41,6 +41,15 @@ class Brain:
         self.output_idx = np.array(
             [index[n.id] for n in genome.nodes if n.kind == "output"], dtype=np.int64
         )
+        self.hidden_idx = np.array(
+            [index[n.id] for n in genome.nodes if n.kind == "hidden"], dtype=np.int64
+        )
+        # Lesion switch for the ablation experiment. Silences hidden nodes
+        # WITHOUT touching the genome, so enabled_count and therefore the
+        # per-tick brain rent stay exactly the same. Deleting the nodes would
+        # refund 13-20% of a reproduction budget and lesioned agents might then
+        # survive BETTER for purely energetic reasons, inverting the result.
+        self.lesioned = False
 
         live = [c for c in genome.conns if c.enabled]
         self.src = np.array([index[c.src] for c in live], dtype=np.int64)
@@ -71,6 +80,8 @@ class Brain:
         for name, idxs in self.act_groups.items():
             new[idxs] = ACT_FN[name](sums[idxs])
         np.clip(new, -STATE_LIMIT, STATE_LIMIT, out=new)
+        if self.lesioned and self.hidden_idx.size:
+            new[self.hidden_idx] = 0.0
         new[self.input_idx] = inputs
 
         self.state = new
