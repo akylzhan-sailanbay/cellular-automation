@@ -38,6 +38,10 @@ class Simulation:
         self.ledger = {
             "grown": 0.0, "metabolism": 0.0, "decayed": 0.0, "conversion": 0.0
         }
+        # Cumulative energy absorbed by feeding. A behavioural readout for the
+        # ablation experiment: population size is chaotic over thousands of
+        # ticks, but "are they still managing to eat" responds immediately.
+        self.intake = 0.0
         # Experimental ablation switch. When True, every brain born into this
         # simulation has its hidden nodes silenced. Children must inherit it or
         # the lesion would wash out within a generation as fresh brains appear.
@@ -155,7 +159,9 @@ class Simulation:
         cfg = self.cfg
         plant = self.world.take_plant(a.x, a.y, cfg.eat_rate * (1.0 - a.diet))
         meat = self.world.take_meat(a.x, a.y, cfg.eat_rate * a.diet)
-        a.energy += plant * cfg.plant_energy + meat * cfg.meat_energy
+        gained = plant * cfg.plant_energy + meat * cfg.meat_energy
+        a.energy += gained
+        self.intake += gained
         self.ledger["conversion"] += meat * (cfg.meat_energy - 1.0)
 
     def _attack(self, a: Agent, dx: int, dy: int) -> None:

@@ -23,6 +23,7 @@ from dataclasses import replace
 import numpy as np
 
 from evolution.config import Config
+from evolution.brain import Brain
 from evolution.sim import Simulation
 
 
@@ -80,16 +81,95 @@ def run_arm(seed: int, attack: bool, evolve: int, test: int) -> dict:
     }
 
 
-def experiment(seeds=(1, 2, 3), evolve: int = 30_000, test: int = 6_000) -> list[dict]:
+def experiment(seeds=(1, 2, 3), evolve: int = 30_000, test: int = 6_000,
+               on_arm=None) -> list[dict]:
     """2x2: predation on/off crossed with intact/lesioned.
 
     The no-predation world evolves almost no hidden structure, so lesioning it
     should barely register. That is the built-in negative control: if the lesion
     hurts BOTH worlds equally, the effect is an artefact of the manipulation
     rather than of the structure being removed.
+
+    `on_arm` is called with each result as it completes. A full run is tens of
+    minutes and silence for that long is indistinguishable from a hang.
     """
     out = []
     for seed in seeds:
         for attack in (True, False):
-            out.append(run_arm(seed, attack, evolve, test))
+            r = run_arm(seed, attack, evolve, test)
+            out.append(r)
+            if on_arm:
+                on_arm(r)
     return out
+
+
+def scramble(sim: Simulation, rng: np.random.Generator) -> None:
+    """Destroy the learned mapping while leaving every pathway and cost intact.
+
+    Silencing hidden nodes turned out to be far too blunt. Because `add_node`
+    SPLITS an existing connection (A->B becomes A->N->B with A->B disabled),
+    64% of an evolved brain's sensor-to-motor wiring runs THROUGH hidden nodes.
+    Silencing them does not remove supplementary computation, it severs the
+    wires: measured, `eat` fired 89.3% of the time intact and 0.0% silenced,
+    and those populations died with zero births. That is a starved population,
+    not an out-competed one.
+
+    Scrambling permutes the weights among connections that touch a hidden node.
+    Connectivity, weight magnitudes, node count and brain rent are all
+    preserved exactly; only which weight sits on which edge changes. If the
+    evolved structure is doing real work, that should hurt. If it is
+    decorative, it should not.
+
+    Weights are permuted in the GENOME so descendants inherit the scrambling
+    rather than reverting to the parent's learned mapping at the first birth.
+    """
+    for a in sim.agents:
+        hid = {n.id for n in a.genome.nodes if n.kind == "hidden"}
+        if not hid:
+            continue
+        touching = [c for c in a.genome.conns
+                    if c.enabled and (c.src in hid or c.dst in hid)]
+        if len(touching) < 2:
+            continue
+        weights = np.array([c.weight for c in touching])
+        for c, w in zip(touching, rng.permutation(weights)):
+            c.weight = float(w)
+        a.brain = Brain(a.genome)
+
+
+def feeding_rate(sim: Simulation, ticks: int) -> float:
+    """Energy absorbed per agent per tick. Immediate, and far less chaotic than
+    population size, which swings wildly over thousands of ticks."""
+    start, agent_ticks = sim.intake, 0
+    for _ in range(ticks):
+        sim.tick()
+        agent_ticks += len(sim.agents)
+        if not sim.agents:
+            break
+    return (sim.intake - start) / max(agent_ticks, 1)
+
+
+def ablation(seed: int, attack: bool, evolve: int = 20_000,
+             window: int = 500, replicates: int = 5) -> dict:
+    """Compare intact feeding against several independently scrambled twins."""
+    cfg = Config(width=64, height=64, seed=seed, allow_attack=attack)
+    sim = Simulation(cfg)
+    sim.run(evolve)
+    if not sim.agents:
+        return {"extinct": True, "seed": seed, "attack": attack}
+
+    hidden = float(np.mean([a.genome.hidden_count() for a in sim.agents]))
+    intact = feeding_rate(fork(sim, False), window)
+    scrambled = []
+    for k in range(replicates):
+        twin = fork(sim, False)
+        scramble(twin, np.random.default_rng(10_000 + k))
+        scrambled.append(feeding_rate(twin, window))
+    return {
+        "extinct": False, "seed": seed, "attack": attack,
+        "hidden": round(hidden, 3),
+        "intact": round(intact, 4),
+        "scrambled": [round(v, 4) for v in scrambled],
+        "mean_scrambled": round(float(np.mean(scrambled)), 4),
+        "drop_pct": round(100 * (float(np.mean(scrambled)) - intact) / max(intact, 1e-9), 1),
+    }

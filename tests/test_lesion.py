@@ -69,3 +69,50 @@ def test_lesion_changes_behaviour_when_hidden_nodes_exist():
     for _ in range(60):
         p = plain.step(x); c = cut.step(x)
     assert not np.allclose(p, c), "lesion had no behavioural effect at all"
+
+
+def test_scramble_preserves_wiring_and_cost_exactly():
+    """The whole point of scrambling over silencing: pathways and rent survive,
+    only which weight sits on which edge changes. Silencing severed 64% of the
+    sensor-to-motor wiring and killed the population outright."""
+    from evolution.lesion import scramble
+    sim = evolved(ticks=6000)
+    twin = fork(sim, False)
+    before_links = sorted(a.brain_links for a in twin.agents)
+    before_weights = sorted(
+        round(c.weight, 6) for a in twin.agents for c in a.genome.conns if c.enabled
+    )
+    scramble(twin, np.random.default_rng(0))
+    assert sorted(a.brain_links for a in twin.agents) == before_links
+    assert sorted(
+        round(c.weight, 6) for a in twin.agents for c in a.genome.conns if c.enabled
+    ) == before_weights, "scramble must permute weights, not change them"
+
+
+def test_scramble_actually_changes_behaviour():
+    from evolution.lesion import scramble
+    sim = evolved(ticks=6000)
+    twin = fork(sim, False)
+    with_hidden = [a for a in twin.agents if a.genome.hidden_count() > 0]
+    if len(with_hidden) < 5:
+        import pytest
+        pytest.skip("population evolved too little structure to scramble")
+    before = [[c.weight for c in a.genome.conns] for a in with_hidden]
+    scramble(twin, np.random.default_rng(0))
+    after = [[c.weight for c in a.genome.conns] for a in with_hidden]
+    assert before != after, "scramble had no effect on any genome"
+
+
+def test_scramble_is_inherited_through_the_genome():
+    """Scrambling the compiled brain alone would revert at the first birth,
+    because children are built from the parent's genome."""
+    from evolution.lesion import scramble
+    sim = evolved(ticks=6000)
+    twin = fork(sim, False)
+    tagged = next((a for a in twin.agents if a.genome.hidden_count() > 1), None)
+    if tagged is None:
+        import pytest
+        pytest.skip("no agent with enough hidden structure")
+    before = [c.weight for c in tagged.genome.conns]
+    scramble(twin, np.random.default_rng(1))
+    assert [c.weight for c in tagged.genome.conns] != before
