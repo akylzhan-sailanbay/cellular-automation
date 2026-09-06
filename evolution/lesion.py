@@ -235,3 +235,60 @@ def ablation2(seed: int, attack: bool, evolve: int = 20_000,
             float(np.mean([r["offspring_per_founder"] for r in runs])), 3),
         "replicates": runs,
     }
+
+
+def targeted(seeds, threshold: float = 2.0, evolve: int = 20_000,
+             window: int = 1500, replicates: int = 5, on_seed=None) -> dict:
+    """Screen many seeds, ablate only the ones worth ablating.
+
+    The untargeted run spent five sixths of its compute on populations that
+    had evolved almost no hidden structure, where the lesion has nothing to
+    remove and can only measure noise. Here each seed is evolved once and
+    ablated in the same pass if it clears the threshold, so nothing is
+    evolved twice.
+
+    Judged by cohort survival and offspring rather than feeding rate. Feeding
+    turned out to be the wrong readout: scrambled brains fed MORE, so grazing
+    is a component of fitness, not fitness.
+    """
+    screened, tested = [], []
+    for seed in seeds:
+        cfg = Config(width=64, height=64, seed=seed, allow_attack=True)
+        sim = Simulation(cfg)
+        sim.run(evolve)
+        if not sim.agents:
+            row = {"seed": seed, "hidden": None, "qualified": False,
+                   "reason": "extinct"}
+            screened.append(row)
+            if on_seed: on_seed(row)
+            continue
+
+        hidden = float(np.mean([a.genome.hidden_count() for a in sim.agents]))
+        row = {"seed": seed, "hidden": round(hidden, 3),
+               "pop": len(sim.agents), "qualified": hidden >= threshold}
+        screened.append(row)
+        if not row["qualified"]:
+            row["reason"] = f"only {hidden:.2f} hidden nodes"
+            if on_seed: on_seed(row)
+            continue
+
+        intact = cohort_fitness(fork(sim, False), window)
+        runs = []
+        for k in range(replicates):
+            twin = fork(sim, False)
+            scramble(twin, np.random.default_rng(30_000 + k))
+            runs.append(cohort_fitness(twin, window))
+        row["intact"] = intact
+        row["scrambled"] = runs
+        row["survival_intact"] = intact["survival"]
+        row["survival_scrambled"] = round(
+            float(np.mean([r["survival"] for r in runs])), 4)
+        row["offspring_intact"] = intact["offspring_per_founder"]
+        row["offspring_scrambled"] = round(
+            float(np.mean([r["offspring_per_founder"] for r in runs])), 3)
+        tested.append(row)
+        if on_seed: on_seed(row)
+
+    return {"screened": screened, "tested": tested,
+            "base_rate": round(sum(1 for s in screened if s["qualified"])
+                               / max(len(screened), 1), 3)}
