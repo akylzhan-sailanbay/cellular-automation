@@ -1,10 +1,5 @@
 # Emergent Evolution
 
-An agent-based world where neural brains, body plans, and ecological roles are
-**evolved rather than programmed**. There is no fitness function anywhere in the
-codebase — an agent's fitness is only whether its lineage still exists. A test
-enforces that (`tests/test_no_fitness_function.py`).
-
 ## Quick start
 
 ```bash
